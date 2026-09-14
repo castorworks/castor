@@ -1,0 +1,66 @@
+# === OS ===
+.DS_Store
+Thumbs.db
+
+# === IDEs & Editors ===
+.claude/settings.local.json
+.idea/
+*.swp
+*.swo
+*~
+
+# === Go ===
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+__debug_bin*
+
+# === Node / Frontend ===
+node_modules/
+.next/
+out/
+build/
+dist/
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnp
+.pnp.js
+
+# === Environment & Secrets ===
+.env
+.env.*
+!.env.example
+*.pem
+
+# === Logs ===
+logs/
+*.log
+.playwright-cli/
+
+# === Docker ===
+docker-compose.override.yml
+
+# === Misc ===
+coverage/
+.vercel
+.turbo
+
+# Deployment runtime configuration and backups
+deploy/compose/config/api.config.toml
+deploy/k8s/overlays/*/api.config.toml
+deploy/k8s/overlays/*/secrets.env
+deploy/k8s/overlays/*/bootstrap.env
+deploy/backups/
+deploy/artifacts/
+
+# Python deployment checks
+__pycache__/
+
+# Local F5 development state and credentials
+.local/

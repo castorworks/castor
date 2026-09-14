@@ -1,0 +1,45 @@
+# Dependencies (installed inside Docker)
+vendor/
+
+# Build outputs
+logs/
+build/
+
+# Tests
+coverage.out
+*_test.go
+
+# Git and editors
+.git/
+.gitignore
+.gitattributes
+.vscode/
+.idea/
+
+# Environment and config
+.env
+.env*.local
+example.config.toml
+configs/app/*.toml
+
+# Documentation
+*.md
+docs/
+
+# CI/CD
+.github/
+
+# Docker files
+Dockerfile*
+.dockerignore
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# IDE
+.golangci.yml
+
+# Security keys
+*.pem
+*.key

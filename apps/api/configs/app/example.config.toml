@@ -1,0 +1,124 @@
+[General]
+AppName = "castor"
+Address = ":1234"
+Development = false  # 本地开发可设为 true（放宽 CORS、跳过短信发送与验证码、允许示例密钥）；生产环境必须为 false
+JwtKey = "change-me-to-a-random-string-of-at-least-32-bytes"  # ⚠️ 必须替换（或使用环境变量 CASTOR_JWT_KEY）；非开发模式拒绝示例值
+JwtTimeoutHours = 2        # 访问令牌有效期（小时），不得大于 JwtMaxRefreshHours
+JwtMaxRefreshHours = 168   # 刷新窗口（小时），同时是登录授权会话的最长有效期
+RegisterEnabled = false  # 是否默认开放注册；数据库 Setting 配置可覆盖
+ShutdownTimeout = 10  # 优雅关闭超时时间（秒）
+ReadHeaderTimeout = 10 # 请求头读取超时时间（秒）
+ReadTimeout = 60       # 请求读取超时时间（秒）
+WriteTimeout = 60      # 响应写入超时时间（秒）
+IdleTimeout = 120      # Keep-Alive 空闲超时时间（秒）
+MaxHeaderBytes = 1048576 # 最大请求头大小
+MaxRequestBodyBytes = 10485760 # 非上传请求（JSON 等）的最大请求体字节数；multipart 上传使用 [Asset].MaxUploadSize
+# 受信任的反向代理 IP/CIDR。只有来自这些地址的请求才采信 X-Forwarded-For 作为客户端 IP。
+# 直连部署保持 []；部署在 Nginx/负载均衡/Ingress 之后时必须填写代理所在网段，
+# 否则所有用户共享代理 IP，登录限流会互相影响。示例：["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"]
+TrustedProxies = []
+
+[CORS]
+AllowOrigins = ["http://localhost:3000"]  # ⚠️ 生产环境必须配置具体域名，如 ["https://example.com"]；"*" 仅允许在开发模式使用
+AllowMethods = ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"]
+AllowHeaders = ["Content-Type", "Content-Length", "Accept-Encoding", "X-CSRF-Token", "Authorization", "accept", "origin", "Cache-Control", "X-Requested-With"]
+AllowCredentials = true
+
+[Captcha]
+ExpireSeconds = 600  # 图形验证码过期时间（秒）
+Length = 4           # 验证码长度
+Width = 120          # 验证码图片宽度
+Height = 40          # 验证码图片高度
+
+[VerifyCode]
+ExpireSeconds = 600  # 短信/邮件验证码过期时间（秒）
+Length = 6           # 验证码位数（6-10）
+MaxAttempts = 5      # 单个验证码最多校验次数，超过后作废，需重新获取
+
+[Logger]
+FilePath = "./logs/app.log"  # 日志文件路径
+MaxSize = 32                  # 日志文件最大大小（MB）
+MaxBackups = 15               # 保留的旧日志文件最大数量
+MaxAge = 15                   # 保留的旧日志文件最大天数
+Compress = true               # 是否压缩旧日志文件
+Level = "info"                # 日志级别: debug, info, warn, error
+Console = true                # 是否输出到控制台
+Caller = false                # 是否输出调用者信息
+
+[GinLogger]
+FilePath = "./logs/gin.log"   # Gin 框架日志文件路径
+MaxSize = 32                  # 日志文件最大大小（MB）
+MaxBackups = 15               # 保留的旧日志文件最大数量
+MaxAge = 15                   # 保留的旧日志文件最大天数
+Compress = true               # 是否压缩旧日志文件
+Console = true                # 是否输出到控制台
+
+[Security]
+RSAPrivateKeySecret = "change-me-exactly-32-bytes-value"  # ⚠️ 必须替换为 32 字节随机字符串（或 CASTOR_RSA_SECRET），用于加密 Redis 中的 RSA 私钥
+
+[I18n]
+RootPath = "configs/i18n"
+DefaultLanguage = "zh"
+SupportedLanguages = ["zh", "en", "ja", "ko"]
+
+[Module]
+FileEnable = true
+
+[Asset]
+MaxUploadSize = 104857600  # 最大上传大小（字节），默认 100MB
+AllowedExtensions = [".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg", ".mp4", ".avi", ".mov", ".mp3", ".wav", ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".txt", ".md", ".csv", ".zip", ".rar", ".7z", ".tar", ".gz"]
+
+[Postgres]
+Host = "localhost"
+Port = 5432
+Username = "dev"
+Password = "dev"
+DbName = "dev"
+SSLMode = "disable"
+TimeZone = "Asia/Shanghai"
+MaxOpenConns = 25                 # 最大打开连接数
+MaxIdleConns = 10                 # 最大空闲连接数
+ConnMaxLifetime = 300000000000    # 连接最大生命周期，单位纳秒（示例为 5 分钟）
+ConnMaxIdleTime = 300000000000    # 空闲连接最大生命周期，单位纳秒（示例为 5 分钟）
+
+[S3]
+Endpoint = "localhost:9000"
+AccessKey = "dev"
+Secret = "dev123456"
+Bucket = "castor"
+Region = "default"
+Secure = false
+ForcePathStyle = true
+
+[Redis]
+Username = ""
+Password = "dev"
+DB = 0
+UseTLS = false
+
+#==> mode: single node | config this
+Address = "localhost:6379"
+
+#==> mode: cluster | config this
+# ClusterAddresses = ["192.168.1.6:7000", "192.168.1.6:7001", "192.168.1.6:7002", "192.168.1.6:7003", "192.168.1.6:7004", "192.168.1.6:7005", "192.168.1.6:7006"]
+
+#==> mode: sentinel | config this
+# SentinelMasterName = "example"
+# SentinelAddresses = ["192.168.1.6:26379", "192.168.1.7:26379"]
+# If you use a different set of credentials for sentinel add
+# SentinelUsername = "user"
+# SentinelPassword = "pass"
+
+[Mail]
+Host = "smtp.example.com"
+Port = 587
+SSL = true
+Username = ""
+Password = ""  # 或使用 CASTOR_MAIL_PASSWORD
+
+[AliyunSms]
+Region = "cn-hangzhou"
+AccessKey = ""  # 或使用 CASTOR_SMS_ACCESS_KEY
+SecretKey = ""  # 或使用 CASTOR_SMS_SECRET_KEY
+SignName = "example"
+TemplateCode = "example"

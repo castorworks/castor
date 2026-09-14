@@ -1,0 +1,24 @@
+# Web: lint-staged
+(cd apps/web && npx lint-staged)
+
+# Go: check staged .go files formatting
+STAGED_GO=$(git diff --cached --name-only --diff-filter=ACM 2>/dev/null | grep '^apps/api/.*\.go$' || true)
+if [ -n "$STAGED_GO" ]; then
+  echo "Checking Go formatting..."
+  UNFORMATTED=""
+  for f in $STAGED_GO; do
+    # Strip the apps/api/ prefix to get the relative path within the Go module
+    REL="${f#apps/api/}"
+    RESULT=$(cd apps/api && gofmt -l "$REL" 2>/dev/null)
+    if [ -n "$RESULT" ]; then
+      UNFORMATTED="$UNFORMATTED\n  $f"
+    fi
+  done
+  if [ -n "$UNFORMATTED" ]; then
+    echo "The following Go files are not formatted:"
+    echo -e "$UNFORMATTED"
+    echo ""
+    echo "Run: cd apps/api && gofmt -w ."
+    exit 1
+  fi
+fi

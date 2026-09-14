@@ -1,0 +1,35 @@
+import PageContainer from '@/components/layout/page-container';
+import LoginHistoriesListingPage from '@/features/login-histories/components/login-histories-listing';
+import { searchParamsCache } from '@/lib/searchparams';
+import type { SearchParams } from 'nuqs/server';
+import { serverHasPermission } from '@/lib/server-auth-headers';
+import { getTranslations } from 'next-intl/server';
+
+export async function generateMetadata() {
+  const t = await getTranslations();
+  return {
+    title: t('nav.loginHistories')
+  };
+}
+
+type PageProps = {
+  searchParams: Promise<SearchParams>;
+};
+
+export default async function LoginHistoriesPage(props: PageProps) {
+  const searchParams = await props.searchParams;
+  searchParamsCache.parse(searchParams);
+  const canViewLoginHistories = await serverHasPermission('/api/v1/admin/login-histories:GET');
+  const t = await getTranslations();
+
+  return (
+    <PageContainer
+      pageTitle={t('nav.loginHistories')}
+      pageDescription={t('dashboard.loginHistoriesDescription')}
+      access={canViewLoginHistories}
+      accessDeniedMessage={t('common.accessDenied')}
+    >
+      <LoginHistoriesListingPage />
+    </PageContainer>
+  );
+}

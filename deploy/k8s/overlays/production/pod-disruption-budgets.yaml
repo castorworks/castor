@@ -1,0 +1,23 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: castor-api
+  labels:
+    castor.io/phase: application
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: castor-api
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: castor-web
+  labels:
+    castor.io/phase: application
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: castor-web

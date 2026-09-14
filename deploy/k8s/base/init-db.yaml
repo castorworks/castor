@@ -1,0 +1,62 @@
+# Suspended: used solely as a template for one Job per release.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: castor-init-db
+  labels:
+    castor.io/phase: configuration
+spec:
+  schedule: "0 0 1 1 *"
+  suspend: true
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 660
+      ttlSecondsAfterFinished: 86400
+      template:
+        spec:
+          restartPolicy: Never
+          automountServiceAccountToken: false
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            runAsGroup: 10001
+            fsGroup: 10001
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: init-db
+              image: castor/castor-api:local
+              args: [init-db]
+              envFrom:
+                - secretRef:
+                    name: castor-secrets
+                - secretRef:
+                    name: castor-bootstrap-secrets
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop: [ALL]
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 128Mi
+                limits:
+                  cpu: "1"
+                  memory: 512Mi
+              volumeMounts:
+                - name: config
+                  mountPath: /app/configs/app
+                  readOnly: true
+                - name: logs
+                  mountPath: /app/logs
+          volumes:
+            - name: config
+              configMap:
+                name: castor-config
+                items:
+                  - key: config.toml
+                    path: config.toml
+            - name: logs
+              emptyDir:
+                sizeLimit: 256Mi

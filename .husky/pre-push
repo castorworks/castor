@@ -1,0 +1,25 @@
+(cd apps/web && bun run build) || exit 1
+
+# Go: vet + test changed packages relative to main
+echo "=== Go vet & test ==="
+
+# Find changed .go files under apps/api/ relative to origin/main
+CHANGED_GO=$(git diff --name-only origin/main...HEAD 2>/dev/null | grep '^apps/api/.*\.go$' || true)
+
+if [ -z "$CHANGED_GO" ]; then
+  echo "No Go changes detected, skipping."
+else
+  # Extract unique package directories (relative to apps/api/)
+  PKGS=$(echo "$CHANGED_GO" | sed 's|^apps/api/||' | sed 's|/[^/]*$||' | sort -u)
+  for pkg in $PKGS; do
+    # Only process if the directory exists and contains .go files
+    if [ -d "apps/api/$pkg" ] && ls apps/api/$pkg/*.go >/dev/null 2>&1; then
+      echo "  vet: ./$pkg"
+      (cd apps/api && go vet "./$pkg") || exit 1
+      if ls apps/api/$pkg/*_test.go >/dev/null 2>&1; then
+        echo "  test: ./$pkg"
+        (cd apps/api && go test "./$pkg" -count=1 -short) || exit 1
+      fi
+    fi
+  done
+fi

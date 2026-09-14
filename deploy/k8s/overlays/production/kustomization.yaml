@@ -1,0 +1,44 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: castor-production
+resources:
+  - ../../base
+  - namespace.yaml
+  - pod-disruption-budgets.yaml
+  - autoscaling.yaml
+configMapGenerator:
+  - name: castor-config
+    files:
+      - config.toml=api.config.toml
+secretGenerator:
+  - name: castor-secrets
+    envs: [secrets.env]
+  - name: castor-bootstrap-secrets
+    envs: [bootstrap.env]
+generatorOptions:
+  labels:
+    castor.io/phase: configuration
+images:
+  - name: castor/castor-api
+    newName: registry.example.com/castor/castor-api
+    newTag: REPLACE_WITH_RELEASE
+  - name: castor/castor-web
+    newName: registry.example.com/castor/castor-web
+    newTag: REPLACE_WITH_RELEASE
+replicas:
+  - name: castor-api
+    count: 2
+  - name: castor-web
+    count: 2
+patches:
+  - path: pod-anti-affinity.yaml
+  - target:
+      kind: Ingress
+      name: castor
+    patch: |-
+      - op: replace
+        path: /spec/rules/0/host
+        value: castor.example.com
+      - op: replace
+        path: /spec/tls/0/hosts/0
+        value: castor.example.com

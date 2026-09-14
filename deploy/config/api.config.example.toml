@@ -1,0 +1,119 @@
+[General]
+AppName = "castor"
+Address = ":1234"
+Development = false
+JwtKey = ""  # ⚠️ 生产环境必须替换为足够复杂的随机字符串（建议 32+ 字符）
+JwtTimeoutHours = 2        # 访问令牌有效期（小时），不得大于 JwtMaxRefreshHours
+JwtMaxRefreshHours = 168   # 刷新窗口（小时），同时是登录授权会话的最长有效期
+RegisterEnabled = false  # 是否默认开放注册；数据库 Setting 配置可覆盖
+ShutdownTimeout = 10  # 优雅关闭超时时间（秒）
+MaxRequestBodyBytes = 10485760 # 非上传请求（JSON 等）的最大请求体字节数；multipart 上传使用 [Asset].MaxUploadSize
+# 受信任的反向代理 IP/CIDR，只有来自这些地址的请求才采信 X-Forwarded-For。
+# 默认信任私有网段，覆盖 Compose 内置 Nginx 与 Kubernetes Ingress Controller 的 Pod 网络。
+# API 端口不能从公网直连；若集群/负载均衡使用其他网段，请改为实际代理地址。
+TrustedProxies = ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"]
+
+[CORS]
+AllowOrigins = ["http://localhost:8080"]  # ⚠️ 生产环境必须配置具体域名，如 ["https://example.com"]，禁止使用 "*"
+AllowMethods = ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"]
+AllowHeaders = ["Content-Type", "Content-Length", "Accept-Encoding", "X-CSRF-Token", "Authorization", "accept", "origin", "Cache-Control", "X-Requested-With"]
+AllowCredentials = true
+
+[Captcha]
+ExpireSeconds = 600  # 图形验证码过期时间（秒）
+Length = 4           # 验证码长度
+Width = 120          # 验证码图片宽度
+Height = 40          # 验证码图片高度
+
+[VerifyCode]
+ExpireSeconds = 600  # 短信/邮件验证码过期时间（秒）
+Length = 6           # 验证码位数（6-10）
+MaxAttempts = 5      # 单个验证码最多校验次数，超过后作废，需重新获取
+
+[Logger]
+FilePath = "./logs/app.log"  # 日志文件路径
+MaxSize = 32                  # 日志文件最大大小（MB）
+MaxBackups = 15               # 保留的旧日志文件最大数量
+MaxAge = 15                   # 保留的旧日志文件最大天数
+Compress = true               # 是否压缩旧日志文件
+Level = "info"                # 日志级别: debug, info, warn, error
+Console = true                # 是否输出到控制台
+Caller = false                # 是否输出调用者信息
+
+[GinLogger]
+FilePath = "./logs/gin.log"   # Gin 框架日志文件路径
+MaxSize = 32                  # 日志文件最大大小（MB）
+MaxBackups = 15               # 保留的旧日志文件最大数量
+MaxAge = 15                   # 保留的旧日志文件最大天数
+Compress = true               # 是否压缩旧日志文件
+Console = true                # 是否输出到控制台
+
+[Security]
+RSAPrivateKeySecret = ""  # Redis 中 RSA 私钥的 AES-256-GCM 加密密钥
+
+[I18n]
+RootPath = "configs/i18n"
+DefaultLanguage = "zh"
+SupportedLanguages = ["zh", "en", "ja", "ko"]
+
+[Module]
+FileEnable = true
+
+[Asset]
+MaxUploadSize = 104857600  # 最大上传大小（字节），默认 100MB
+AllowedExtensions = [".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg", ".mp4", ".avi", ".mov", ".mp3", ".wav", ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".txt", ".md", ".csv", ".zip", ".rar", ".7z", ".tar", ".gz"]
+
+[Postgres]
+Host = "postgres"
+Port = 5432
+Username = "castor"
+Password = ""
+DbName = "castor"
+SSLMode = "disable"
+TimeZone = "Asia/Shanghai"
+MaxOpenConns = 25                 # 最大打开连接数
+MaxIdleConns = 10                 # 最大空闲连接数
+ConnMaxLifetime = 300000000000    # 连接最大生命周期，单位纳秒（示例为 5 分钟）
+ConnMaxIdleTime = 300000000000    # 空闲连接最大生命周期，单位纳秒（示例为 5 分钟）
+
+[S3]
+Endpoint = "minio:9000"
+AccessKey = ""
+Secret = ""
+Bucket = "castor"
+Region = "default"
+Secure = false
+ForcePathStyle = true
+
+[Redis]
+Username = ""
+Password = ""
+DB = 0
+UseTLS = false
+
+#==> mode: single node | config this
+Address = "redis:6379"
+
+#==> mode: cluster | config this
+# ClusterAddresses = ["192.168.1.6:7000", "192.168.1.6:7001", "192.168.1.6:7002", "192.168.1.6:7003", "192.168.1.6:7004", "192.168.1.6:7005", "192.168.1.6:7006"]
+
+#==> mode: sentinel | config this
+# SentinelMasterName = "example"
+# SentinelAddresses = ["192.168.1.6:26379", "192.168.1.7:26379"]
+# If you use a different set of credentials for sentinel add
+# SentinelUsername = "user"
+# SentinelPassword = "pass"
+
+[Mail]
+Host = "smtp.example.com"
+Port = 587
+SSL = true
+Username = ""
+Password = ""  # 由 CASTOR_MAIL_PASSWORD 注入
+
+[AliyunSms]
+Region = "cn-hangzhou"
+AccessKey = ""  # 由 CASTOR_SMS_ACCESS_KEY 注入
+SecretKey = ""  # 由 CASTOR_SMS_SECRET_KEY 注入
+SignName = "example"
+TemplateCode = "example"

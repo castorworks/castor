@@ -1,0 +1,59 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Castor API",
+      "type": "go",
+      "request": "launch",
+      "mode": "debug",
+      "cwd": "${workspaceFolder}/apps/api",
+      "program": "${workspaceFolder}/apps/api/cmd/castor",
+      "envFile": "${workspaceFolder}/.local/dev/debug.env",
+      "presentation": {
+        "hidden": true
+      }
+    },
+    {
+      "name": "Castor Web",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/apps/web",
+      "program": "${workspaceFolder}/apps/web/node_modules/next/dist/bin/next",
+      "args": [
+        "dev",
+        "--hostname",
+        "127.0.0.1"
+      ],
+      "envFile": "${workspaceFolder}/.local/dev/debug.env",
+      "autoAttachChildProcesses": true,
+      "skipFiles": [
+        "<node_internals>/**"
+      ],
+      "serverReadyAction": {
+        "pattern": "- Local:\\s+(https?://\\S+)",
+        "uriFormat": "%s",
+        "action": "debugWithChrome",
+        "webRoot": "${workspaceFolder}/apps/web",
+        "killOnServerStop": true
+      },
+      "presentation": {
+        "hidden": true
+      },
+      "preLaunchTask": "Castor: Wait API"
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Castor",
+      "configurations": [
+        "Castor API",
+        "Castor Web"
+      ],
+      "preLaunchTask": "Castor: Prepare",
+      "stopAll": true,
+      "presentation": {
+        "order": 0
+      }
+    }
+  ]
+}

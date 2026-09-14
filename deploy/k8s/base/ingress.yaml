@@ -1,0 +1,28 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: castor
+  labels:
+    castor.io/phase: application
+spec:
+  tls:
+    - hosts: [castor.example.com]
+      secretName: castor-tls
+  rules:
+    - host: castor.example.com
+      http:
+        paths:
+          - path: /api/v1
+            pathType: Prefix
+            backend:
+              service:
+                name: castor-api
+                port:
+                  name: http
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: castor-web
+                port:
+                  name: http

@@ -1,0 +1,334 @@
+package service
+
+import (
+	"context"
+	"crypto/rand"
+	"errors"
+	"fmt"
+	"math/big"
+	"os"
+	"strings"
+	"time"
+
+	"github.com/castorworks/castor/internal/application/dto"
+	"github.com/castorworks/castor/internal/domain/permission"
+	"github.com/castorworks/castor/internal/domain/shared"
+	"github.com/castorworks/castor/internal/domain/user"
+	"github.com/castorworks/castor/internal/pkg/constant"
+	"github.com/castorworks/castor/internal/pkg/query"
+	"github.com/castorworks/castor/internal/pkg/ucontext"
+	"github.com/hyperits/gosuite/logger"
+	"github.com/hyperits/gosuite/security/hash"
+)
+
+// UserService 用户应用服务接口
+type UserService interface {
+	Gets(ctx context.Context, page, size int, order string, opts ...query.Option) ([]dto.UserResp, int64, error)
+	Get(ctx context.Context, id uint) (*dto.UserResp, error)
+	GetByUsername(ctx context.Context, username string) (*dto.UserResp, error)
+	GetRawByUsername(ctx context.Context, username string) (*user.User, error)
+	Post(ctx context.Context, req *dto.UserPostReq) (*dto.UserResp, error)
+	Put(ctx context.Context, id uint, req *dto.UserPutReq) (*dto.UserResp, error)
+	Delete(ctx context.Context, id uint) error
+}
+
+type userService struct {
+	userRepo      user.Repository
+	settingHelper *SettingHelper // 共享的系统配置读取辅助工具
+	rsaService    RsaService     // RSA 加解密服务
+	rbac          RBACService
+}
+
+// NewUserService 创建用户应用服务
+func NewUserService(userRepo user.Repository, settingHelper *SettingHelper, rsaService RsaService, rbac RBACService) UserService {
+	svc := &userService{
+		userRepo:      userRepo,
+		settingHelper: settingHelper,
+		rsaService:    rsaService,
+		rbac:          rbac,
+	}
+	return svc
+}
+
+func (svc *userService) Gets(ctx context.Context, page, size int, order string, opts ...query.Option) ([]dto.UserResp, int64, error) {
+	items, total, err := svc.userRepo.Gets(ctx, page, size, order, opts...)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	resp := make([]dto.UserResp, len(items))
+	for i, item := range items {
+		if err := resp[i].FromEntity(&item); err != nil {
+			return nil, 0, err
+		}
+	}
+	return resp, total, nil
+}
+
+func (svc *userService) Get(ctx context.Context, id uint) (*dto.UserResp, error) {
+	item, err := svc.userRepo.Get(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	resp := &dto.UserResp{}
+	if err := resp.FromEntity(item); err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+func (svc *userService) GetByUsername(ctx context.Context, username string) (*dto.UserResp, error) {
+	item, err := svc.userRepo.GetByUsername(ctx, username)
+	if err != nil {
+		return nil, err
+	}
+
+	resp := &dto.UserResp{}
+	if err := resp.FromEntity(item); err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+func (svc *userService) GetRawByUsername(ctx context.Context, username string) (*user.User, error) {
+	return svc.userRepo.GetByUsername(ctx, username)
+}
+
+func (svc *userService) Post(ctx context.Context, req *dto.UserPostReq) (*dto.UserResp, error) {
+	// RSA 解密密码
+	plainPassword, err := svc.rsaService.Decrypt(ctx, req.Password)
+	if err != nil {
+		return nil, ErrPasswordDecryptFailed
+	}
+
+	// 从系统配置获取密码最小长度并校验
+	if err := svc.settingHelper.ValidatePasswordLength(ctx, plainPassword); err != nil {
+		return nil, err
+	}
+
+	item := &user.User{
+		Username: req.Username,
+		Name:     req.Name,
+	}
+
+	item.AccountSource = constant.ACCOUNT_SOURCE_INTERNAL
+
+	cryptoPassword, err := hash.BcryptHashPassword(plainPassword)
+	if err != nil {
+		return nil, err
+	}
+	item.Password = cryptoPassword
+
+	item.Enable = true
+	item.Locked = false
+	item.AccountExpireDate = time.Now().Add(100 * 365 * 24 * time.Hour)
+	item.CredentialExpireDate = time.Now().Add(100 * 365 * 24 * time.Hour)
+
+	if err := svc.userRepo.Create(ctx, item); err != nil {
+		return nil, err
+	}
+	if err := svc.rbac.AddUserRole(ctx, item.Username, permission.RoleUser, true); err != nil {
+		if delErr := svc.userRepo.Delete(ctx, item.ID); delErr != nil {
+			logger.Errorf("Compensating delete of user %d after role assignment failure failed: %v", item.ID, delErr)
+		}
+		return nil, err
+	}
+
+	resp := &dto.UserResp{}
+	if err := resp.FromEntity(item); err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+func (svc *userService) Put(ctx context.Context, id uint, req *dto.UserPutReq) (*dto.UserResp, error) {
+	item, err := svc.userRepo.Get(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	// Protection guards: only apply when status fields are being changed
+	if req.Enable != nil || req.Locked != nil {
+		// Reject status changes to system user
+		if item.Username == "system" {
+			return nil, ErrCannotModifySystemUser
+		}
+		// Reject self-modification of status fields
+		requesterID := ucontext.AuditUserIDFromContext(ctx)
+		if requesterID != 0 && requesterID == item.ID {
+			return nil, ErrCannotModifyOwnStatus
+		}
+	}
+
+	if req.Name != "" {
+		item.Name = req.Name
+	}
+
+	if req.Avatar != "" {
+		item.Avatar = req.Avatar
+	}
+
+	if req.Password != "" {
+		// RSA 解密密码
+		plainPassword, err := svc.rsaService.Decrypt(ctx, req.Password)
+		if err != nil {
+			return nil, ErrPasswordDecryptFailed
+		}
+
+		// 从系统配置获取密码最小长度并校验
+		if err := svc.settingHelper.ValidatePasswordLength(ctx, plainPassword); err != nil {
+			return nil, err
+		}
+		cryptoPassword, err := hash.BcryptHashPassword(plainPassword)
+		if err != nil {
+			return nil, err
+		}
+		item.Password = cryptoPassword
+	}
+
+	// Handle status field updates
+	if req.Enable != nil {
+		item.Enable = *req.Enable
+	}
+
+	if req.Locked != nil {
+		item.Locked = *req.Locked
+	}
+
+	// Handle expiry date updates (nil = not updating, zero = clear expiry)
+	if req.AccountExpireDate != nil {
+		item.AccountExpireDate = *req.AccountExpireDate
+	}
+
+	if req.CredentialExpireDate != nil {
+		item.CredentialExpireDate = *req.CredentialExpireDate
+	}
+
+	if err := svc.userRepo.Update(ctx, item); err != nil {
+		return nil, err
+	}
+	if req.Password != "" || req.Enable != nil || req.Locked != nil || req.AccountExpireDate != nil || req.CredentialExpireDate != nil {
+		if err := svc.rbac.RevokeUserSessions(ctx, item.ID); err != nil {
+			return nil, err
+		}
+	}
+
+	resp := &dto.UserResp{}
+	if err := resp.FromEntity(item); err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+func (svc *userService) Delete(ctx context.Context, id uint) error {
+	item, err := svc.userRepo.Get(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	// Reject deletion of system user
+	if item.Username == "system" {
+		return ErrCannotDeleteSystemUser
+	}
+
+	// Reject self-deletion
+	requesterID := ucontext.AuditUserIDFromContext(ctx)
+	if requesterID != 0 && requesterID == item.ID {
+		return ErrCannotDeleteOwnAccount
+	}
+
+	if err := svc.rbac.DeleteUserAuthorization(ctx, id); err != nil {
+		return fmt.Errorf("delete authorization for user %s: %w", item.Username, err)
+	}
+	return svc.userRepo.Delete(ctx, id)
+}
+
+// DefaultAdminPasswordEnv supplies the initial password of the built-in system user.
+const DefaultAdminPasswordEnv = "CASTOR_DEFAULT_ADMIN_PASSWORD"
+
+// MinDefaultAdminPasswordLength is the minimum accepted length of DefaultAdminPasswordEnv.
+const MinDefaultAdminPasswordLength = 12
+
+// InitializeDefaultUser is called inside the init-db transaction, never by a server constructor.
+//
+// The system user's initial password comes from CASTOR_DEFAULT_ADMIN_PASSWORD. Only when
+// allowGeneratedPassword is true (development mode) may a random password be generated
+// instead; it is returned to the caller so the init-db command can show it once on the
+// terminal. It is never written to the application log.
+func InitializeDefaultUser(ctx context.Context, repo user.Repository, rbac RBACService, allowGeneratedPassword bool) (string, error) {
+	svc := &userService{userRepo: repo, rbac: rbac}
+	return svc.createDefaultUserIfNotExists(ctx, allowGeneratedPassword)
+}
+
+func (svc *userService) createDefaultUserIfNotExists(ctx context.Context, allowGeneratedPassword bool) (string, error) {
+	var generatedPassword string
+	_, err := svc.userRepo.GetByUsername(ctx, "system")
+	if errors.Is(err, shared.ErrNotFound) {
+		rawPassword, generated, err := resolveDefaultPassword(allowGeneratedPassword)
+		if err != nil {
+			return "", err
+		}
+		password, err := hash.BcryptHashPassword(rawPassword)
+		if err != nil {
+			return "", err
+		}
+		item := &user.User{
+			Username:             "system",
+			Name:                 "system",
+			Password:             password,
+			AccountSource:        constant.ACCOUNT_SOURCE_INTERNAL,
+			Enable:               true,
+			AccountExpireDate:    time.Now().Add(100 * 365 * 24 * time.Hour),
+			CredentialExpireDate: time.Now().Add(100 * 365 * 24 * time.Hour),
+		}
+		if err := svc.userRepo.Create(ctx, item); err != nil {
+			return "", err
+		}
+		if generated {
+			generatedPassword = rawPassword
+		}
+	} else if err != nil {
+		return "", err
+	}
+	if err := svc.rbac.AddUserRole(ctx, "system", "admin", true); err != nil {
+		return "", err
+	}
+	if err := svc.rbac.AddUserRole(ctx, "system", "user", true); err != nil {
+		return "", err
+	}
+	return generatedPassword, nil
+}
+
+// resolveDefaultPassword returns the configured initial admin password, or a generated
+// one when allowed. generated reports whether the password was generated.
+func resolveDefaultPassword(allowGenerated bool) (password string, generated bool, err error) {
+	trimmed := strings.TrimSpace(os.Getenv(DefaultAdminPasswordEnv))
+	if len(trimmed) >= MinDefaultAdminPasswordLength {
+		return trimmed, false, nil
+	}
+	if !allowGenerated {
+		return "", false, fmt.Errorf("%w: set %s to at least %d characters", ErrDefaultAdminPasswordRequired, DefaultAdminPasswordEnv, MinDefaultAdminPasswordLength)
+	}
+	if trimmed != "" {
+		logger.Warnf("%s is shorter than %d characters, generating a random password instead", DefaultAdminPasswordEnv, MinDefaultAdminPasswordLength)
+	}
+	return generateRandomPassword(20), true, nil
+}
+
+// generateRandomPassword creates a random password of the given length using
+// uppercase letters, lowercase letters, and digits.
+func generateRandomPassword(length int) string {
+	const charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+	result := make([]byte, length)
+	for i := range result {
+		idx, err := rand.Int(rand.Reader, big.NewInt(int64(len(charset))))
+		if err != nil {
+			// Fallback: should never happen with crypto/rand
+			result[i] = charset[i%len(charset)]
+			continue
+		}
+		result[i] = charset[idx.Int64()]
+	}
+	return string(result)
+}
