@@ -1,0 +1,12 @@
+# shellcheck shell=sh
+(cd apps/web && bunx lint-staged) || exit 1
+
+STAGED_GO=$(git diff --cached --name-only --diff-filter=ACM -- 'apps/api/*.go' | sed 's|^apps/api/||')
+if [ -n "$STAGED_GO" ]; then
+  # shellcheck disable=SC2086 # one path per word; Go file names contain no spaces
+  UNFORMATTED=$(cd apps/api && gofmt -l $STAGED_GO)
+  if [ -n "$UNFORMATTED" ]; then
+    printf 'Go files not formatted (run: cd apps/api && gofmt -w .):\n%s\n' "$UNFORMATTED"
+    exit 1
+  fi
+fi

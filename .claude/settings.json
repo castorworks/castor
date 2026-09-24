@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 scripts/check.py:*)",
+      "Bash(scripts/check.py:*)",
+      "Bash(go build:*)",
+      "Bash(go vet:*)",
+      "Bash(go test:*)",
+      "Bash(gofmt:*)",
+      "Bash(wire:*)",
+      "Bash(bun run lint:*)",
+      "Bash(bun run test:*)",
+      "Bash(bun run build:*)",
+      "Bash(bun run format:*)",
+      "Bash(bunx tsc --noEmit:*)",
+      "Bash(bunx vitest run:*)",
+      "Bash(python3 -m unittest:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git show:*)"
+    ]
+  }
+}

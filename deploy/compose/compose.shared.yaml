@@ -1,0 +1,15 @@
+# Shared infrastructure for several Castor instances (scripts/deploy-compose.py up shared).
+# Layered on compose.infra.yaml: PostgreSQL, Redis and RustFS join a named network that
+# every instance project attaches its API to. Each instance gets its own database and
+# role, bucket and RustFS user (scripts/compose-instance.py provision), and its own Redis
+# key namespace (CASTOR_INSTANCE_ID).
+networks:
+  shared:
+    name: ${SHARED_NETWORK:-castor-shared}
+services:
+  postgres:
+    networks: [default, shared]
+  redis:
+    networks: [default, shared]
+  rustfs:
+    networks: [default, shared]

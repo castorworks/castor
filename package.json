@@ -1,0 +1,11 @@
+{
+  "name": "castor",
+  "private": true,
+  "license": "MIT",
+  "scripts": {
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "husky": "^9.1.7"
+  }
+}

@@ -1,0 +1,62 @@
+name: ${PROJECT_NAME:-castor}
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-castor}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-castor}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD}
+    command: [sh, -c, 'exec redis-server /usr/local/etc/redis/redis.conf --requirepass "$$REDIS_PASSWORD"']
+    volumes:
+      - redis_data:/data
+      - ./config/redis.conf:/usr/local/etc/redis/redis.conf:ro
+    healthcheck:
+      test: [CMD-SHELL, 'REDISCLI_AUTH="$$REDIS_PASSWORD" redis-cli ping | grep -q PONG']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  rustfs:
+    image: rustfs/rustfs:1.0.0
+    restart: unless-stopped
+    environment:
+      # The image defaults to rustfsadmin/rustfsadmin, so both must be set.
+      RUSTFS_ACCESS_KEY: ${S3_ACCESS_KEY:?Set S3_ACCESS_KEY}
+      RUSTFS_SECRET_KEY: ${S3_SECRET_KEY:?Set S3_SECRET_KEY}
+    volumes:
+      - rustfs_data:/data
+    healthcheck:
+      # Unauthenticated probe endpoint; the image ships curl but no wget.
+      test: [CMD, curl, -fsS, 'http://127.0.0.1:9000/health']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  rustfs-init:
+    image: rustfs/rc:v0.1.36
+    profiles: [tools]
+    restart: "no"
+    environment:
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:?Set S3_ACCESS_KEY}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:?Set S3_SECRET_KEY}
+      S3_BUCKET: ${S3_BUCKET:-castor}
+    entrypoint: [/bin/sh, -ec]
+    command:
+      - |
+        rc alias set castor http://rustfs:9000 "$$S3_ACCESS_KEY" "$$S3_SECRET_KEY" >/dev/null
+        rc bucket create --quiet --ignore-existing "castor/$$S3_BUCKET"
+volumes:
+  postgres_data:
+  redis_data:
+  rustfs_data:

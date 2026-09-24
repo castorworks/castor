@@ -1,0 +1,27 @@
+# Installed and built inside the image
+node_modules/
+.next/
+*.tsbuildinfo
+
+# Tests
+coverage/
+*.test.*
+
+# Local environment and secrets (.env.production, if present, is build configuration)
+.env
+.env*.local
+.env.development
+.env.test
+*.pem
+
+# Editors, agents and docs
+.vscode/
+.idea/
+.claude/
+.agents/
+skills-lock.json
+*.md
+.DS_Store
+
+Dockerfile
+.dockerignore

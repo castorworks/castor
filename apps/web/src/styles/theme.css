@@ -1,0 +1,137 @@
+/* Import individual theme files */
+/* Each theme defines the same set of semantic tokens (enforced by design-tokens.test.ts). */
+/* The default theme also owns the `:root:not([data-theme])` fallback. */
+@import './themes/claude.css';
+@import './themes/neobrutualism.css';
+@import './themes/supabase.css';
+@import './themes/vercel.css';
+@import './themes/mono.css';
+@import './themes/notebook.css';
+@import './themes/light-green.css';
+@import './themes/zen.css';
+@import './themes/astro-vista.css';
+@import './themes/whatsapp.css';
+
+/* Map semantic tokens to Tailwind utilities — defined once for every theme */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  /* Categorical palette for data-driven labels (dictionary colors, file types) */
+  --color-tag-red: var(--tag-red);
+  --color-tag-orange: var(--tag-orange);
+  --color-tag-yellow: var(--tag-yellow);
+  --color-tag-green: var(--tag-green);
+  --color-tag-blue: var(--tag-blue);
+  --color-tag-purple: var(--tag-purple);
+  --color-tag-pink: var(--tag-pink);
+  --color-tag-gray: var(--tag-gray);
+
+  /* Extra step below Tailwind's text-xs for dense badges and keyboard hints */
+  --text-2xs: 0.625rem;
+  --text-2xs--line-height: calc(0.875 / 0.625);
+
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+  --font-serif: var(--font-serif);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --shadow-2xs: var(--shadow-2xs);
+  --shadow-xs: var(--shadow-xs);
+  --shadow-sm: var(--shadow-sm);
+  --shadow: var(--shadow);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+  --shadow-xl: var(--shadow-xl);
+  --shadow-2xl: var(--shadow-2xl);
+
+  --tracking-tighter: calc(var(--tracking-normal) - 0.05em);
+  --tracking-tight: calc(var(--tracking-normal) - 0.025em);
+  --tracking-normal: var(--tracking-normal);
+  --tracking-wide: calc(var(--tracking-normal) + 0.025em);
+  --tracking-wider: calc(var(--tracking-normal) + 0.05em);
+  --tracking-widest: calc(var(--tracking-normal) + 0.1em);
+}
+
+body {
+  @apply overscroll-none;
+}
+
+:root {
+  --header-height: calc(var(--spacing, 0.25rem) * 12 + 1px);
+
+  /* Theme-independent categorical palette */
+  --tag-red: oklch(0.637 0.237 25.331);
+  --tag-orange: oklch(0.705 0.213 47.604);
+  --tag-yellow: oklch(0.795 0.184 86.047);
+  --tag-green: oklch(0.723 0.219 149.579);
+  --tag-blue: oklch(0.623 0.214 259.815);
+  --tag-purple: oklch(0.627 0.265 303.9);
+  --tag-pink: oklch(0.656 0.241 354.308);
+  --tag-gray: oklch(0.551 0.027 264.364);
+}
+
+.dark {
+  --tag-red: oklch(0.704 0.191 22.216);
+  --tag-orange: oklch(0.75 0.183 55.934);
+  --tag-yellow: oklch(0.852 0.199 91.936);
+  --tag-green: oklch(0.792 0.209 151.711);
+  --tag-blue: oklch(0.707 0.165 254.624);
+  --tag-purple: oklch(0.714 0.203 305.504);
+  --tag-pink: oklch(0.718 0.202 349.761);
+  --tag-gray: oklch(0.707 0.022 261.325);
+}
+
+/* Apply theme fonts to body for all themes */
+/* This ensures theme-specific fonts override Next.js font variables */
+/* Font variables are defined on [data-theme] (html element) */
+/* We need to override Next.js font variables on body to use html's values */
+/* Using initial removes the property, allowing parent (html) values to cascade */
+[data-theme] body {
+  /* Remove Next.js font variables to allow theme variables from html to cascade */
+  --font-sans: initial;
+  --font-mono: initial;
+  --font-serif: initial;
+  /* Apply font-family - will now resolve from html's [data-theme] variables */
+  font-family: var(--font-sans);
+}

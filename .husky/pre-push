@@ -1,0 +1,19 @@
+# shellcheck shell=sh
+# Fast subset of scripts/check.py for what this push changes.
+# Without a merge base (first push, or history rewritten) everything counts as changed.
+if BASE=$(git merge-base origin/main HEAD 2>/dev/null); then
+  CHANGED=$(git diff --name-only "$BASE" HEAD)
+else
+  CHANGED=$(git ls-files)
+fi
+
+if printf '%s\n' "$CHANGED" | grep -q '^apps/web/'; then
+  (cd apps/web && bun run build) || exit 1
+fi
+
+PKGS=$(printf '%s\n' "$CHANGED" | grep '^apps/api/.*\.go$' | sed 's|^apps/api/|./|; s|/[^/]*$||' | sort -u |
+  while read -r pkg; do ls "apps/api/$pkg"/*.go >/dev/null 2>&1 && echo "$pkg"; done)
+if [ -n "$PKGS" ]; then
+  # shellcheck disable=SC2086 # one package per word
+  (cd apps/api && go vet $PKGS && TZ=UTC go test -count=1 $PKGS) || exit 1
+fi

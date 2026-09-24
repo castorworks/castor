@@ -1,0 +1,22 @@
+# Local build and debug outputs
+/castor
+__debug_bin*
+logs/
+*.out
+
+# Tests
+*_test.go
+
+# Local config and secrets (the image receives config by mount)
+.env
+*.pem
+*.key
+
+# Editors and docs
+.vscode/
+.idea/
+*.md
+.DS_Store
+
+Dockerfile
+.dockerignore

@@ -1,0 +1,20 @@
+# One Castor instance on the shared infrastructure (scripts/deploy-compose.py up instance <env-file>).
+# Layered on compose.yaml. Only the API reaches the shared network, where the
+# infrastructure answers to its service names (postgres, redis, rustfs); Web and the
+# gateway stay on this project's own network, so each resolves castor-api to its own
+# instance.
+networks:
+  shared:
+    external: true
+    name: ${SHARED_NETWORK:-castor-shared}
+x-instance-env: &instance-env
+  CASTOR_INSTANCE_ID: ${CASTOR_INSTANCE_ID:?Set CASTOR_INSTANCE_ID}
+services:
+  init-db:
+    networks: [default, shared]
+    environment:
+      <<: *instance-env
+  castor-api:
+    networks: [default, shared]
+    environment:
+      <<: *instance-env

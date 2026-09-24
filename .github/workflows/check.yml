@@ -1,0 +1,78 @@
+# Runs the same definition of done as local development: scripts/check.py.
+# api also runs the PostgreSQL integration tests (skipped locally without CASTOR_TEST_POSTGRES_DSN).
+name: check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  api:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        # Same image as deploy/compose/compose.infra.yaml.
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: castor
+          POSTGRES_PASSWORD: castor
+          POSTGRES_DB: castor_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U castor -d castor_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # A disposable database that exists only for this job.
+      CASTOR_TEST_POSTGRES_DSN: host=127.0.0.1 port=5432 user=castor password=castor dbname=castor_test sslmode=disable
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: apps/api/go.mod
+          cache-dependency-path: apps/api/go.sum
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - run: python3 scripts/check.py api
+
+  web:
+    runs-on: ubuntu-latest
+    env:
+      # next build warns without it; the value only feeds the /api/v1 rewrite target.
+      CASTOR_API_URL: http://127.0.0.1:1234
+    steps:
+      - uses: actions/checkout@v5
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.3'
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - run: bun install --frozen-lockfile
+        working-directory: apps/web
+      - run: python3 scripts/check.py web
+
+  scripts:
+    # Development, verification and deployment tooling is first-class on all three platforms.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - run: python scripts/check.py scripts

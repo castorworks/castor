@@ -1,0 +1,134 @@
+# Network policies for the Castor namespace. Requires a CNI that enforces
+# NetworkPolicy (Calico, Cilium, etc.); on a CNI without enforcement these are
+# inert and provide no isolation.
+#
+# Model:
+#   - Default-deny all ingress to every pod in the namespace.
+#   - Web accepts ingress only from the ingress controller.
+#   - API accepts ingress only from web.
+#   - Web/API egress is restricted to DNS plus their required upstreams.
+#   - The init-db Job carries no app label, so no egress policy selects it and
+#     its egress stays unrestricted (it needs one-off access to external
+#     Postgres/Redis/S3 during a release).
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: castor-default-deny-ingress
+  labels:
+    castor.io/phase: configuration
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+  # No ingress rules => deny all ingress to namespace pods by default.
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: castor-web-allow-ingress
+  labels:
+    castor.io/phase: configuration
+spec:
+  podSelector:
+    matchLabels:
+      app: castor-web
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        # ⚠️ Adjust this selector to your ingress controller's namespace or the
+        # site becomes unreachable. Default matches the ingress-nginx namespace.
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 3000
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: castor-api-allow-ingress
+  labels:
+    castor.io/phase: configuration
+spec:
+  podSelector:
+    matchLabels:
+      app: castor-api
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: castor-web
+      ports:
+        - protocol: TCP
+          port: 1234
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: castor-web-egress
+  labels:
+    castor.io/phase: configuration
+spec:
+  podSelector:
+    matchLabels:
+      app: castor-web
+  policyTypes: [Egress]
+  egress:
+    # DNS resolution.
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    # Server-side rendering calls the API in-cluster (CASTOR_API_URL).
+    - to:
+        - podSelector:
+            matchLabels:
+              app: castor-api
+      ports:
+        - protocol: TCP
+          port: 1234
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: castor-api-egress
+  labels:
+    castor.io/phase: configuration
+spec:
+  podSelector:
+    matchLabels:
+      app: castor-api
+  policyTypes: [Egress]
+  egress:
+    # DNS resolution.
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    # External Postgres / Redis / S3 (this repo does not run them in-cluster).
+    # ⚠️ Narrow `to` to your infrastructure's actual IPs/CIDRs and adjust the
+    # ports to your deployment (CASTOR_DB_PORT, Redis, S3 endpoint/HTTPS).
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+      ports:
+        - protocol: TCP
+          port: 5432   # Postgres
+        - protocol: TCP
+          port: 6379   # Redis
+        - protocol: TCP
+          port: 443    # S3 (HTTPS)
+        - protocol: TCP
+          port: 9000   # S3 (self-hosted, e.g. RustFS)

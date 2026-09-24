@@ -1,0 +1,3 @@
+# LF everywhere, including Windows checkouts (core.autocrlf): gofmt, oxfmt (endOfLine: lf),
+# the Git hooks (run by sh) and config files mounted into Linux containers all require it.
+* text=auto eol=lf
